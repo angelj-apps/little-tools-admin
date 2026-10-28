@@ -1,22 +1,33 @@
 # Little Tools Ops (admin)
 
-Admin control room for the [Little Tools](https://github.com/angelj-apps/gen_ai_hello_world) app: shared Supabase profiles, AI-generated tool cards, and Explore ratings.
+Admin control room for Little Tools (`hw1`). **Same Supabase project** as the main app — not a separate database.
 
 ## Features
 
-- **Pulse** — creative stats (community temperature, generation/rating cadence, tag heat, controversy desk)
-- **Users** — read profiles
-- **Media** — create / read / update / delete `tool_cards`
-- **Ratings** — read upvotes / downvotes from `tool_votes`
-- **Auth wall** — every admin route requires Google login **and** `profiles.is_superadmin = true`
+| Area | Access |
+|------|--------|
+| Users (`profiles`) | read |
+| Prompt chains / steps | read |
+| Prompt chain mix | read / update |
+| Terms | CRUD |
+| AI media (`tool_cards`) | CRUD |
+| Ratings (`tool_votes`) | read |
+| Generation requests | read |
+| AI generation examples | CRUD |
+| LLM providers / models | CRUD |
+| LLM responses | read |
+| Allowed signup domains | CRUD |
+| Whitelisted emails | CRUD |
+| Images (+ upload) | CRUD |
 
-## Bootstrap: won’t I lock myself out?
+Every route requires Google login **and** `profiles.is_superadmin = true`.
 
-Yes — if nothing is marked superadmin, nobody can use the admin UI. Fix it with project owner access (which you already have):
+## Setup SQL (run in hw1 Supabase)
 
-1. Deploy / run the admin app and **sign in once with Google**. That creates your `auth.users` + `profiles` row.
-2. In the **Supabase SQL editor**, run `supabase/admin.sql` (adds `is_superadmin` + RLS policies).
-3. Promote yourself:
+1. `supabase/admin.sql` — `is_superadmin` + base policies  
+2. `supabase/admin-entities.sql` — new tables + storage bucket `admin-images`
+
+Promote yourself:
 
 ```sql
 update public.profiles p
@@ -26,25 +37,14 @@ where p.id = u.id
   and u.email = 'you@example.com';
 ```
 
-You are not locked out because the database console (and service-role access) sit outside the admin app’s login wall. The app enforces the flag; you set the flag from Supabase.
-
-## Local setup
+## Local
 
 ```bash
 npm install
-cp .env.example .env.local   # or reuse keys from the main Little Tools app
+# .env.local = same keys as hw1
 npm run dev -- --port 3001
 ```
 
-Required env:
-
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
-- `NEXT_PUBLIC_SITE_URL` (e.g. `http://localhost:3001`)
-
-Add the admin origin to Supabase Auth → URL configuration (Redirect URLs), e.g. `https://your-admin.vercel.app/auth/callback`.
-
 ## Vercel
 
-- Turn **Deployment Protection** off for this project so Incognito can load the public URL (auth still protects the data).
-- Set the same Supabase env vars in the Vercel project.
+Same Supabase env vars as hw1. Turn **Deployment Protection** off so Incognito works.

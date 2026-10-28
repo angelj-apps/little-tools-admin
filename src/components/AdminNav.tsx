@@ -9,6 +9,18 @@ const LINKS = [
   { href: "/users", label: "Users" },
   { href: "/media", label: "Media" },
   { href: "/ratings", label: "Ratings" },
+  { href: "/prompt-chains", label: "Chains" },
+  { href: "/prompt-chains/steps", label: "Steps" },
+  { href: "/prompt-chains/mix", label: "Mix" },
+  { href: "/terms", label: "Terms" },
+  { href: "/generation-requests", label: "Gen reqs" },
+  { href: "/examples", label: "Examples" },
+  { href: "/llm-providers", label: "Providers" },
+  { href: "/llm-models", label: "Models" },
+  { href: "/llm-responses", label: "Responses" },
+  { href: "/signup-domains", label: "Domains" },
+  { href: "/whitelist", label: "Whitelist" },
+  { href: "/images", label: "Images" },
 ];
 
 export function AdminNav({ email }: { email?: string }) {
@@ -27,7 +39,11 @@ export function AdminNav({ email }: { email?: string }) {
           const active =
             link.href === "/"
               ? pathname === "/"
-              : pathname === link.href || pathname.startsWith(`${link.href}/`);
+              : pathname === link.href ||
+                (link.href !== "/prompt-chains" &&
+                  pathname.startsWith(`${link.href}/`)) ||
+                (link.href === "/prompt-chains" &&
+                  pathname === "/prompt-chains");
           return (
             <Link
               key={link.href}
