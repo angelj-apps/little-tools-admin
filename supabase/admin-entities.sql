@@ -1,6 +1,47 @@
 -- Extra admin-managed tables for Little Tools (same Supabase project as hw1).
 -- Requires supabase/admin.sql (is_superadmin + is_superadmin()) already applied.
--- Run in the Supabase SQL editor.
+--
+-- Safe to run: CREATE IF NOT EXISTS only. DROP POLICY IF EXISTS is for re-runs.
+-- RLS is enabled immediately on every new table (superadmin-only access).
+
+-- ---------- helpers ----------
+create or replace function public.admin_entities_apply_rls(table_name text)
+returns void
+language plpgsql
+as $$
+begin
+  execute format('alter table public.%I enable row level security', table_name);
+
+  execute format('drop policy if exists %I on public.%I', 'Superadmins select ' || table_name, table_name);
+  execute format(
+    'create policy %I on public.%I for select to authenticated using (public.is_superadmin())',
+    'Superadmins select ' || table_name, table_name
+  );
+
+  execute format('drop policy if exists %I on public.%I', 'Superadmins insert ' || table_name, table_name);
+  execute format(
+    'create policy %I on public.%I for insert to authenticated with check (public.is_superadmin())',
+    'Superadmins insert ' || table_name, table_name
+  );
+
+  execute format('drop policy if exists %I on public.%I', 'Superadmins update ' || table_name, table_name);
+  execute format(
+    'create policy %I on public.%I for update to authenticated using (public.is_superadmin()) with check (public.is_superadmin())',
+    'Superadmins update ' || table_name, table_name
+  );
+
+  execute format('drop policy if exists %I on public.%I', 'Superadmins delete ' || table_name, table_name);
+  execute format(
+    'create policy %I on public.%I for delete to authenticated using (public.is_superadmin())',
+    'Superadmins delete ' || table_name, table_name
+  );
+
+  execute format(
+    'grant select, insert, update, delete on table public.%I to authenticated',
+    table_name
+  );
+end;
+$$;
 
 -- ---------- LLM providers / models ----------
 create table if not exists public.llm_providers (
@@ -13,6 +54,8 @@ create table if not exists public.llm_providers (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+alter table public.llm_providers enable row level security;
+select public.admin_entities_apply_rls('llm_providers');
 
 create table if not exists public.llm_models (
   id uuid primary key default gen_random_uuid(),
@@ -24,6 +67,8 @@ create table if not exists public.llm_models (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+alter table public.llm_models enable row level security;
+select public.admin_entities_apply_rls('llm_models');
 
 -- ---------- Prompt chains ----------
 create table if not exists public.prompt_chains (
@@ -34,6 +79,8 @@ create table if not exists public.prompt_chains (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+alter table public.prompt_chains enable row level security;
+select public.admin_entities_apply_rls('prompt_chains');
 
 create table if not exists public.prompt_chain_steps (
   id uuid primary key default gen_random_uuid(),
@@ -45,8 +92,9 @@ create table if not exists public.prompt_chain_steps (
   created_at timestamptz not null default now(),
   unique (prompt_chain_id, position)
 );
+alter table public.prompt_chain_steps enable row level security;
+select public.admin_entities_apply_rls('prompt_chain_steps');
 
--- Mix weights across chains (updateable; typically weights sum ~ 100).
 create table if not exists public.prompt_chain_mix (
   id uuid primary key default gen_random_uuid(),
   prompt_chain_id uuid not null references public.prompt_chains (id) on delete cascade,
@@ -55,6 +103,8 @@ create table if not exists public.prompt_chain_mix (
   updated_at timestamptz not null default now(),
   unique (prompt_chain_id)
 );
+alter table public.prompt_chain_mix enable row level security;
+select public.admin_entities_apply_rls('prompt_chain_mix');
 
 -- ---------- Terms ----------
 create table if not exists public.terms (
@@ -67,6 +117,8 @@ create table if not exists public.terms (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+alter table public.terms enable row level security;
+select public.admin_entities_apply_rls('terms');
 
 -- ---------- Generation pipeline ----------
 create table if not exists public.generation_requests (
@@ -77,6 +129,8 @@ create table if not exists public.generation_requests (
   status text not null default 'pending',
   created_at timestamptz not null default now()
 );
+alter table public.generation_requests enable row level security;
+select public.admin_entities_apply_rls('generation_requests');
 
 create table if not exists public.ai_generation_examples (
   id uuid primary key default gen_random_uuid(),
@@ -88,6 +142,8 @@ create table if not exists public.ai_generation_examples (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+alter table public.ai_generation_examples enable row level security;
+select public.admin_entities_apply_rls('ai_generation_examples');
 
 create table if not exists public.llm_responses (
   id uuid primary key default gen_random_uuid(),
@@ -98,6 +154,8 @@ create table if not exists public.llm_responses (
   latency_ms integer,
   created_at timestamptz not null default now()
 );
+alter table public.llm_responses enable row level security;
+select public.admin_entities_apply_rls('llm_responses');
 
 -- ---------- Access control lists ----------
 create table if not exists public.allowed_signup_domains (
@@ -106,6 +164,8 @@ create table if not exists public.allowed_signup_domains (
   notes text,
   created_at timestamptz not null default now()
 );
+alter table public.allowed_signup_domains enable row level security;
+select public.admin_entities_apply_rls('allowed_signup_domains');
 
 create table if not exists public.whitelisted_emails (
   id uuid primary key default gen_random_uuid(),
@@ -113,8 +173,10 @@ create table if not exists public.whitelisted_emails (
   notes text,
   created_at timestamptz not null default now()
 );
+alter table public.whitelisted_emails enable row level security;
+select public.admin_entities_apply_rls('whitelisted_emails');
 
--- ---------- Images (Supabase Storage) ----------
+-- ---------- Images ----------
 create table if not exists public.images (
   id uuid primary key default gen_random_uuid(),
   path text not null,
@@ -124,7 +186,10 @@ create table if not exists public.images (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+alter table public.images enable row level security;
+select public.admin_entities_apply_rls('images');
 
+-- ---------- Storage bucket for image uploads ----------
 insert into storage.buckets (id, name, public)
 values ('admin-images', 'admin-images', true)
 on conflict (id) do update set public = true;
@@ -152,56 +217,3 @@ create policy "Superadmins delete admin images"
   on storage.objects for delete
   to authenticated
   using (bucket_id = 'admin-images' and public.is_superadmin());
-
--- ---------- RLS: superadmins full access; authenticated can read where useful ----------
-do $$
-declare
-  t text;
-begin
-  foreach t in array array[
-    'llm_providers',
-    'llm_models',
-    'prompt_chains',
-    'prompt_chain_steps',
-    'prompt_chain_mix',
-    'terms',
-    'generation_requests',
-    'ai_generation_examples',
-    'llm_responses',
-    'allowed_signup_domains',
-    'whitelisted_emails',
-    'images'
-  ]
-  loop
-    execute format('alter table public.%I enable row level security', t);
-
-    execute format('drop policy if exists "Superadmins select %I" on public.%I', t, t);
-    execute format(
-      'create policy "Superadmins select %I" on public.%I for select to authenticated using (public.is_superadmin())',
-      t, t
-    );
-
-    execute format('drop policy if exists "Superadmins insert %I" on public.%I', t, t);
-    execute format(
-      'create policy "Superadmins insert %I" on public.%I for insert to authenticated with check (public.is_superadmin())',
-      t, t
-    );
-
-    execute format('drop policy if exists "Superadmins update %I" on public.%I', t, t);
-    execute format(
-      'create policy "Superadmins update %I" on public.%I for update to authenticated using (public.is_superadmin()) with check (public.is_superadmin())',
-      t, t
-    );
-
-    execute format('drop policy if exists "Superadmins delete %I" on public.%I', t, t);
-    execute format(
-      'create policy "Superadmins delete %I" on public.%I for delete to authenticated using (public.is_superadmin())',
-      t, t
-    );
-
-    execute format(
-      'grant select, insert, update, delete on table public.%I to authenticated',
-      t
-    );
-  end loop;
-end $$;
